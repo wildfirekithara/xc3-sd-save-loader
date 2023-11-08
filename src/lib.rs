@@ -2,9 +2,7 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::mem::MaybeUninit;
 use std::io::{Read, Write};
-use skyline::from_offset;
-use skyline::{nn, hook};
-
+use skyline::{nn, hook, println};
 struct SaveLoaderState {
     allowed_files: Vec<String>,
     ready: bool,
@@ -47,12 +45,6 @@ const DEFAULT_ALLOW_LIST: &'static str = r#"
 "#;
 
 static mut SAVE_LOADER_STATE: Option<SaveLoaderState> = None;
-
-macro_rules! cstri {
-    ($str:expr) => {
-        CString::new($str).unwrap().as_ptr() as *const _
-    };
-}
 
 macro_rules! log_printf {
     ($($arg:tt)*) => {{
@@ -115,7 +107,6 @@ unsafe fn do_load_file(gstate: u64, file_path: *mut u8, data: *const u8, data_si
 
     if std::path::Path::new(&override_file_path).exists() {
         log_printf!("Overriding {} with {}", orig_file_path, override_file_path);       
-        let len = override_file_path.len();
 
         match std::fs::copy(override_file_path, orig_file_path) {
             Ok(_) => {},
@@ -134,8 +125,6 @@ unsafe fn do_save_file(gstate: u64, file_path: *const u8, data: *const u8, data_
     let orig_file_path = orig_file_path.to_str().unwrap();
 
     call_original!(gstate, file_path, data, data_size, p5);
-
-    let state = SAVE_LOADER_STATE.as_mut().unwrap();
 
     if !is_allowed_file(orig_file_path) {
         return;
@@ -161,7 +150,8 @@ unsafe fn do_save_file(gstate: u64, file_path: *const u8, data: *const u8, data_
 }
 
 unsafe fn initialize_mod() {
-    let res = nn::fs::MountSdCardForDebug(cstri!("sd"));    
+    let sd_device = CString::new("sd").unwrap();
+    let res = nn::fs::MountSdCardForDebug(sd_device.as_ptr() as *const _ as *const _);
     if res != 0 {
         return;
     }
@@ -272,6 +262,7 @@ unsafe fn init_mount_save_data() {
 
 #[skyline::main(name = "xc3_sd_save_loader")]
 pub fn main() {
+    println!("xc3_sd_save_loader loaded");
     unsafe {
         SAVE_LOADER_STATE = Some(SaveLoaderState {
             ready: false,

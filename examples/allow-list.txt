@@ -1,0 +1,29 @@
+# This allow list is used to determine which save files will be loaded from the sd card
+# as well as which save files will be mirrored to the sd card when the game saves.
+# Remove preceding # to allow a file to be copied from sd to save
+#
+# Keep the minimum number of files (ideally just the ones you want to modify) in this list,
+# ideally around 3 or 4. As game will crash when trying to copy too many saves from the
+# sd card to the save data in a row.
+
+# bf3system00.sav # system settings
+# bf3game00a.sav  # base game auto save slot
+# bf3game00a.tmb  # base game auto save slot thumbnail
+# bf3game01.sav   # base game quick save slot
+# bf3game01.tmb   # base game quick save slot thumbnail
+bf3game02.sav   # base game manual save slot A
+# bf3game02.tmb   # base game manual save slot A thumbnail
+# bf3game03.sav   # base game manual save slot B
+# bf3game03.tmb   # base game manual save slot B thumbnail
+# bf3game04.sav   # base game manual save slot C
+# bf3game04.tmb   # base game manual save slot C thumbnail
+# bf3dlc00a.sav   # future redeemed DLC auto save slot
+# bf3dlc00a.tmb   # future redeemed DLC auto save slot thumbnail
+# bf3dlc01.sav    # future redeemed DLC quick save slot
+# bf3dlc01.tmb    # future redeemed DLC quick save slot thumbnail
+bf3dlc02.sav    # future redeemed DLC manual save slot A
+# bf3dlc02.tmb    # future redeemed DLC manual save slot A thumbnail
+# bf3dlc03.sav    # future redeemed DLC manual save slot B
+# bf3dlc03.tmb    # future redeemed DLC manual save slot B thumbnail
+# bf3dlc04.sav    # future redeemed DLC manual save slot C
+# bf3dlc04.tmb    # future redeemed DLC manual save slot C thumbnail
