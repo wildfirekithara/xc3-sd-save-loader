@@ -1,0 +1,25 @@
+[package]
+name = "xc3-sd-save-loader"
+version = "1.0.0"
+authors = ["Glimmer Rhodes <glimmerrhodes@gmail.com>"]
+edition = "2021"
+license = "gpl-3.0"
+
+[package.metadata.skyline]
+titleid = "010074F013262000" # Xenoblade Chronicles 3
+custom-npdm = "res/npdm/xc3.npdm"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+chrono = "0.4.31"
+skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = true
+strip = true
