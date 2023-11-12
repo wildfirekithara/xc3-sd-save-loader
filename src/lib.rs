@@ -72,26 +72,19 @@ unsafe fn do_load_file(gstate: u64, file_path: *mut u8, data: *const u8, data_si
     let orig_file_path = orig_file_path.to_str().unwrap();
 
     let state = SAVE_LOADER_STATE.as_mut().unwrap();
-    if !state.ready {
-        return;
-    }
+    if state.ready && is_allowed_file(orig_file_path) {
+        let override_file_path = orig_file_path.replace("save:", BASE_SAVES_PATH);
 
-    if !is_allowed_file(orig_file_path) {
-        call_original!(gstate, file_path, data, data_size, p5);
-        return;
-    }
+        if std::path::Path::new(&override_file_path).exists() {
+            dbg_println!("Overriding {} with {}", orig_file_path, override_file_path);       
 
-    let override_file_path = orig_file_path.replace("save:", BASE_SAVES_PATH);
-
-    if std::path::Path::new(&override_file_path).exists() {
-        dbg_println!("Overriding {} with {}", orig_file_path, override_file_path);       
-
-        match std::fs::copy(override_file_path, orig_file_path) {
-            Ok(_) => {},
-            Err(e) => {
-                dbg_println!("Failed to copy file: {}", e);
-            }
-        };
+            match std::fs::copy(override_file_path, orig_file_path) {
+                Ok(_) => {},
+                Err(e) => {
+                    dbg_println!("Failed to copy file: {}", e);
+                }
+            };
+        }
     }
 
     call_original!(gstate, file_path, data, data_size, p5);
