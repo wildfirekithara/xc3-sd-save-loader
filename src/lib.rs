@@ -2,14 +2,17 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::mem::MaybeUninit;
 use std::io::{Read, Write};
-use skyline::{nn, hook, println};
+use skyline::{nn, hook};
+use crate::logging::dbg_println;
+
+mod logging;
+
 struct SaveLoaderState {
     allowed_files: Vec<String>,
     ready: bool,
 }
 
 const BASE_SAVES_PATH: &'static str = "sd:/xc3-saves";
-const LOG_FILE_PATH: &'static str = "sd:/xc3-saves/log.txt";
 const ALLOW_LIST_PATH: &'static str = "sd:/xc3-saves/allow-list.txt";
 
 const DEFAULT_ALLOW_LIST: &'static str = r#"
@@ -46,31 +49,6 @@ const DEFAULT_ALLOW_LIST: &'static str = r#"
 
 static mut SAVE_LOADER_STATE: Option<SaveLoaderState> = None;
 
-macro_rules! log_printf {
-    ($($arg:tt)*) => {{
-        write_log_line(&format!($($arg)*));
-    }};
-}
-
-pub unsafe fn write_log_line(line: &str) {
-    let state: &mut SaveLoaderState = SAVE_LOADER_STATE.as_mut().unwrap();
-    if !state.ready {
-        return;
-    }
-
-    let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-    let formatted_line = format!("[{}] [XC3-SD-Save-Loader] {}\n", ts, line);
-
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(LOG_FILE_PATH)
-        .unwrap();
-    file.write_all(formatted_line.as_bytes()).unwrap();
-    drop(file);
-}
-
-
 pub unsafe fn is_allowed_file(file_path: &str) -> bool {
     let state = SAVE_LOADER_STATE.as_mut().unwrap();
     if !state.ready {
@@ -106,12 +84,12 @@ unsafe fn do_load_file(gstate: u64, file_path: *mut u8, data: *const u8, data_si
     let override_file_path = orig_file_path.replace("save:", BASE_SAVES_PATH);
 
     if std::path::Path::new(&override_file_path).exists() {
-        log_printf!("Overriding {} with {}", orig_file_path, override_file_path);       
+        dbg_println!("Overriding {} with {}", orig_file_path, override_file_path);       
 
         match std::fs::copy(override_file_path, orig_file_path) {
             Ok(_) => {},
             Err(e) => {
-                log_printf!("Failed to copy file: {}", e);
+                dbg_println!("Failed to copy file: {}", e);
             }
         };
     }
@@ -131,7 +109,7 @@ unsafe fn do_save_file(gstate: u64, file_path: *const u8, data: *const u8, data_
     }
 
     let dup_file_path = orig_file_path.replace("save:", BASE_SAVES_PATH);
-    log_printf!("Mirroring save from {} to {}", orig_file_path, dup_file_path);
+    dbg_println!("Mirroring save from {} to {}", orig_file_path, dup_file_path);
 
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -150,11 +128,19 @@ unsafe fn do_save_file(gstate: u64, file_path: *const u8, data: *const u8, data_
 }
 
 unsafe fn initialize_mod() {
-    let sd_device = CString::new("sd").unwrap();
+    let sd_device = CString::new("sd").unwrap();    
     let res = nn::fs::MountSdCardForDebug(sd_device.as_ptr() as *const _ as *const _);
-    if res != 0 {
+    if res == 0 {
+        dbg_println!("Mounted sd card.");
+    } else if res == 30722 {
+        dbg_println!("SD card already mounted.");
+    } else if res != 0 && res != 30722 {
+        dbg_println!("Failed to mount sd card: {}", res);
+        dbg_println!("Mod failed to initialize.");
         return;
     }
+
+    dbg_println!("Checking for saves directory {}", BASE_SAVES_PATH);
 
     let base_saves_path = CString::new(BASE_SAVES_PATH).unwrap();
 
@@ -170,8 +156,12 @@ unsafe fn initialize_mod() {
     if res == 0 {
         state.ready = true;
     } else if res != 0 {
+        dbg_println!("Failed to open saves directory: {}", res);
+        dbg_println!("Attempting to create saves directory: {}", res);
         let res = nn::fs::CreateDirectory(base_saves_path.as_ptr() as *const _);
         if res != 0 {
+            dbg_println!("Failed to create saves directory: {}", res);
+            dbg_println!("Mod failed to initialize.");
             return;
         }
 
@@ -181,6 +171,8 @@ unsafe fn initialize_mod() {
             nn::fs::OpenDirectoryMode_OpenDirectoryMode_All as i32
         );        
         if res != 0 {
+            dbg_println!("Failed to open saves directory: {}", res);
+            dbg_println!("Mod failed to initialize.");
             return;
         }
         state.ready = true;
@@ -190,11 +182,11 @@ unsafe fn initialize_mod() {
         return;
     }
 
-    log_printf!("Mod initialized");
-    log_printf!("Loading allow list from {}", ALLOW_LIST_PATH);
+    dbg_println!("Mod initialized");
+    dbg_println!("Loading allow list from {}", ALLOW_LIST_PATH);
 
     if !std::path::Path::new(ALLOW_LIST_PATH).exists() {
-        log_printf!("Allow list does not exist. Creating default allow list at {}", ALLOW_LIST_PATH);
+        dbg_println!("Allow list does not exist. Creating default allow list at {}", ALLOW_LIST_PATH);
 
         let mut file = std::fs::OpenOptions::new()
             .create(true)
@@ -222,7 +214,7 @@ unsafe fn initialize_mod() {
             continue;
         }
 
-        log_printf!("Adding {} to allow list", filename);
+        dbg_println!("Adding {} to allow list", filename);
         state.allowed_files.push(filename.to_string());
     }
 }
@@ -238,7 +230,7 @@ unsafe fn init_mount_save_data() {
         return;
     }
 
-    log_printf!("Game has mounted save data. Copying files.");
+    dbg_println!("Game has mounted save data. Copying files.");
 
     for file in &state.allowed_files {
         let sd_file_path = format!("{}/{}", BASE_SAVES_PATH, file);
@@ -248,21 +240,21 @@ unsafe fn init_mount_save_data() {
             continue;
         }
 
-        log_printf!("Copying {} to {}", sd_file_path, save_file_path);
+        dbg_println!("Copying {} to {}", sd_file_path, save_file_path);
 
         match std::fs::copy(sd_file_path, save_file_path) {
             Ok(_) => {},
             Err(e) => {
-                log_printf!("Failed to copy file: {}", e);
+                dbg_println!("Failed to copy file: {}", e);
             }
         };
     }
-    log_printf!("Done copying files");
+    dbg_println!("Done copying files");
 }
 
 #[skyline::main(name = "xc3_sd_save_loader")]
 pub fn main() {
-    println!("xc3_sd_save_loader loaded");
+    dbg_println!("xc3_sd_save_loader loaded");
     unsafe {
         SAVE_LOADER_STATE = Some(SaveLoaderState {
             ready: false,
