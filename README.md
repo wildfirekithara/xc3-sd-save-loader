@@ -1,4 +1,4 @@
-# SD Save Loader mod for Xenoblade 3
+# [WIP] SD Save Loader mod for Xenoblade 3
 This mod allows saving and loading Xenoblade Chronicles 3 save data to/from a location on the SD card. `/xc3-saves`
 
 This can be useful if you would like to save round trips to a save manager when needing to do quick adjustments to a save. You can also update the save via FTP and return to the title screen to load the updated save without having to shutdown and restart the game.
